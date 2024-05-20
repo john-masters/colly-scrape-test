@@ -6,16 +6,7 @@ import (
 	"github.com/gocolly/colly"
 )
 
-type Job struct {
-	Title       string
-	Company     string
-	Link        string
-	Description string
-}
-
-func main() {
-	var jobs []Job
-
+func scrape(jobs *[]Job) {
 	c := colly.NewCollector()
 
 	c.OnHTML("[data-card-type='JobCard']", func(e *colly.HTMLElement) {
@@ -31,7 +22,7 @@ func main() {
 			Link:    fullLink,
 		}
 
-		jobs = append(jobs, job)
+		*jobs = append(*jobs, job)
 
 		e.Request.Visit(fullLink)
 	})
@@ -39,15 +30,21 @@ func main() {
 	c.OnHTML("div[data-automation='jobAdDetails']", func(e *colly.HTMLElement) {
 		description := e.Text
 
-		for i := range jobs {
-			if jobs[i].Link == e.Request.URL.String() {
-				jobs[i].Description = description
+		for i := range *jobs {
+			if (*jobs)[i].Link == e.Request.URL.String() {
+				(*jobs)[i].Description = description
 				break
 			}
 		}
 	})
 
 	c.Visit("https://www.seek.com.au/junior-developer-jobs/full-time?daterange=1")
+}
+
+func main() {
+	var jobs []Job
+
+	scrape(&jobs)
 
 	log.Println("Jobs found: ", len(jobs))
 
