@@ -1,5 +1,7 @@
 package main
 
+import "time"
+
 type Job struct {
 	Title       string
 	Company     string
@@ -34,4 +36,22 @@ type ChatCompletionResponse struct {
 		CompletionTokens int `json:"completion_tokens"`
 		TotalTokens      int `json:"total_tokens"`
 	} `json:"usage"`
+}
+
+type History struct {
+	ID      int
+	UserID  int
+	Name    string
+	Role    string
+	Start   string
+	Finish  string
+	Current bool
+	Duties  string
+}
+
+type Letter struct {
+	ID        int
+	UserID    int
+	Content   string
+	CreatedAt time.Time
 }

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -15,6 +14,55 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 )
+
+func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+
+	// var jobs []Job
+	var historyList []History
+
+	// scrape(&jobs)
+	err = getHistory(&historyList)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	jsonHistory, err := json.Marshal(historyList)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	log.Println(string(jsonHistory))
+
+	// response, err := askGPT(string(jsonHistory))
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// log.Println("Response: ", response)
+
+	// for i, job := range jobs {
+	// 	if i > 0 { // loop once for testing
+	// 		break
+	// 	}
+
+	// 	log.Println("Title: ", job.Title)
+	// 	log.Println("Company: ", job.Company)
+	// 	log.Println("Link: ", job.Link)
+	// 	log.Println("Description: ", job.Description)
+
+	// 	response, err := askGPT(job.Description)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+
+	// 	log.Println("Response: ", response)
+
+	// }
+}
 
 func scrape(jobs *[]Job) {
 	c := colly.NewCollector()
@@ -51,47 +99,48 @@ func scrape(jobs *[]Job) {
 	c.Visit("https://www.seek.com.au/junior-developer-jobs/full-time?daterange=1")
 }
 
-func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
-
-	var jobs []Job
-
-	scrape(&jobs)
-
-	for i, job := range jobs {
-		if i > 0 { // loop once for testing
-			break
-		}
-
-		log.Println("Title: ", job.Title)
-		log.Println("Company: ", job.Company)
-		log.Println("Link: ", job.Link)
-		log.Println("Description: ", job.Description)
-
-		response, err := askGPT(job.Description)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		log.Println("Response: ", response)
-
-	}
-}
-
 func dbConnect() (*sql.DB, error) {
 	db, err := sql.Open("sqlite3", "./test.db")
 
 	if err != nil {
-		fmt.Println("Error opening database")
 		return db, err
 	}
 
-	defer db.Close()
+	// don't defer here as this will close when function returns
+	// defer db.Close()
 
 	return db, err
+}
+
+func getHistory(historyList *[]History) error {
+	db, err := dbConnect()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	// hardcoded id for testing
+	rows, err := db.Query("SELECT * FROM history WHERE user_id = 1")
+
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var history History
+		err := rows.Scan(&history.ID, &history.UserID, &history.Name, &history.Role, &history.Start, &history.Finish, &history.Current, &history.Duties)
+		if err != nil {
+			return err
+		}
+
+		*historyList = append(*historyList, history)
+
+	}
+
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func askGPT(message string) (string, error) {
