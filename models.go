@@ -15,8 +15,9 @@ type Message struct {
 }
 
 type ChatCompletionRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
+	Model          string            `json:"model"`
+	ResponseFormat map[string]string `json:"response_format"`
+	Messages       []Message         `json:"messages"`
 }
 
 type ChatCompletionResponse struct {

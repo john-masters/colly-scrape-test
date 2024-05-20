@@ -42,24 +42,18 @@ func main() {
 		log.Fatal(err)
 	}
 
+	jsonCoverLetter, err := json.Marshal(coverLetter)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	for i, job := range jobs {
 		if i > 0 { // loop once for testing
 			break
 		}
 
-		prompt := fmt.Sprintf(`
-			Do you think I'd be a good fit for this role?
-			Please compare my cover letter and job history
-			to the job description and let me know
-			if you think I should apply.
-
-			Cover Letter: %v
-			Job history: %v
-
-
-			Job Title: %v
-			Job Description: %v`,
-			coverLetter.Content,
+		prompt := fmt.Sprintf("Cover Letter: %v\n\nJob history: %v\n\nJob Title: %v\n\nJob Description: %v",
+			string(jsonCoverLetter),
 			string(jsonHistory),
 			job.Title,
 			job.Description,
@@ -73,19 +67,6 @@ func main() {
 		}
 
 		log.Println("Response: ", response)
-
-		// 	log.Println("Title: ", job.Title)
-		// 	log.Println("Company: ", job.Company)
-		// 	log.Println("Link: ", job.Link)
-		// 	log.Println("Description: ", job.Description)
-
-		// 	response, err := askGPT(job.Description)
-		// 	if err != nil {
-		// 		log.Fatal(err)
-		// 	}
-
-		// 	log.Println("Response: ", response)
-
 	}
 }
 
@@ -145,7 +126,7 @@ func getHistory(historyList *[]History) error {
 	defer db.Close()
 
 	// hardcoded id for testing
-	rows, err := db.Query("SELECT * FROM history WHERE user_id = 1")
+	rows, err := db.Query("SELECT name, role, start, finish, current, duties FROM history WHERE user_id = 1")
 
 	if err != nil {
 		return err
@@ -153,7 +134,14 @@ func getHistory(historyList *[]History) error {
 
 	for rows.Next() {
 		var history History
-		err := rows.Scan(&history.ID, &history.UserID, &history.Name, &history.Role, &history.Start, &history.Finish, &history.Current, &history.Duties)
+		err := rows.Scan(
+			&history.Name,
+			&history.Role,
+			&history.Start,
+			&history.Finish,
+			&history.Current,
+			&history.Duties,
+		)
 		if err != nil {
 			return err
 		}
@@ -176,11 +164,8 @@ func getCoverLetter(coverLetter *Letter) error {
 	defer db.Close()
 
 	// hardcoded id for testing
-	err = db.QueryRow("SELECT * FROM letters WHERE user_id = 1").Scan(
-		&coverLetter.ID,
-		&coverLetter.UserID,
+	err = db.QueryRow("SELECT content FROM letters WHERE user_id = 1").Scan(
 		&coverLetter.Content,
-		&coverLetter.CreatedAt,
 	)
 
 	if err != nil {
@@ -192,10 +177,31 @@ func getCoverLetter(coverLetter *Letter) error {
 
 func askGPT(message string) (string, error) {
 	url := "https://api.openai.com/v1/chat/completions"
+
+	systemPrompt := `You are a job matching assistant. Your task is to evaluate whether a given job history matches the requirements of a job description. You will receive a JSON payload with a job history and a cover letter. Based on this information, you will determine if there is a match (isMatch: true or false). If isMatch is true, you will also provide a custom cover letter tailored to the job description.
+
+The response should be in JSON format with the following structure:
+{
+  "isMatch": boolean,
+  "coverLetter": string
+}
+
+If isMatch is false, the coverLetter should be an empty string.
+
+Consider the following when making your decision:
+- Relevance of job history to the job description
+- Skills and experiences mentioned
+- Any other relevant information
+
+Make sure the cover letter is professional, concise, and highlights the candidate's strengths in relation to the job description.`
+
 	requestBody := ChatCompletionRequest{
-		Model: "gpt-4o-2024-05-13",
+		Model: "gpt-3.5-turbo",
+		ResponseFormat: map[string]string{
+			"type": "json_object",
+		},
 		Messages: []Message{
-			{Role: "system", Content: "You are a helpful assistant."},
+			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: message},
 		},
 	}
