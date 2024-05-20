@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -21,11 +22,17 @@ func main() {
 		log.Fatal("Error loading .env file")
 	}
 
-	// var jobs []Job
+	var jobs []Job
 	var historyList []History
+	var coverLetter Letter
 
-	// scrape(&jobs)
+	scrape(&jobs)
 	err = getHistory(&historyList)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	err = getCoverLetter(&coverLetter)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -35,33 +42,51 @@ func main() {
 		log.Fatal(err)
 	}
 
-	log.Println(string(jsonHistory))
+	for i, job := range jobs {
+		if i > 0 { // loop once for testing
+			break
+		}
 
-	// response, err := askGPT(string(jsonHistory))
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+		prompt := fmt.Sprintf(`
+			Do you think I'd be a good fit for this role?
+			Please compare my cover letter and job history
+			to the job description and let me know
+			if you think I should apply.
 
-	// log.Println("Response: ", response)
+			Cover Letter: %v
+			Job history: %v
 
-	// for i, job := range jobs {
-	// 	if i > 0 { // loop once for testing
-	// 		break
-	// 	}
 
-	// 	log.Println("Title: ", job.Title)
-	// 	log.Println("Company: ", job.Company)
-	// 	log.Println("Link: ", job.Link)
-	// 	log.Println("Description: ", job.Description)
+			Job Title: %v
+			Job Description: %v`,
+			coverLetter.Content,
+			string(jsonHistory),
+			job.Title,
+			job.Description,
+		)
 
-	// 	response, err := askGPT(job.Description)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
+		log.Println("Prompt: ", prompt)
 
-	// 	log.Println("Response: ", response)
+		response, err := askGPT(prompt)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	// }
+		log.Println("Response: ", response)
+
+		// 	log.Println("Title: ", job.Title)
+		// 	log.Println("Company: ", job.Company)
+		// 	log.Println("Link: ", job.Link)
+		// 	log.Println("Description: ", job.Description)
+
+		// 	response, err := askGPT(job.Description)
+		// 	if err != nil {
+		// 		log.Fatal(err)
+		// 	}
+
+		// 	log.Println("Response: ", response)
+
+	}
 }
 
 func scrape(jobs *[]Job) {
@@ -140,6 +165,28 @@ func getHistory(historyList *[]History) error {
 	if err := rows.Err(); err != nil {
 		return err
 	}
+	return nil
+}
+
+func getCoverLetter(coverLetter *Letter) error {
+	db, err := dbConnect()
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	// hardcoded id for testing
+	err = db.QueryRow("SELECT * FROM letters WHERE user_id = 1").Scan(
+		&coverLetter.ID,
+		&coverLetter.UserID,
+		&coverLetter.Content,
+		&coverLetter.CreatedAt,
+	)
+
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
