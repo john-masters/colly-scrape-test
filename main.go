@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -43,23 +42,23 @@ func main() {
 		log.Fatal(err)
 	}
 
-	jsonCoverLetter, err := json.Marshal(coverLetter)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	var responseList []Response
 
 	for _, job := range jobs {
 
-		prompt := fmt.Sprintf("Cover Letter: %v\n\nJob history: %v\n\nJob Title: %v\n\nJob Description: %v",
-			string(jsonCoverLetter),
-			string(jsonHistory),
-			job.Title,
-			job.Description,
-		)
+		data := UserPromptData{
+			CoverLetterContent: coverLetter.Content,
+			JobHistory:         string(jsonHistory),
+			JobTitle:           job.Title,
+			JobDescription:     job.Description,
+		}
 
-		jsonResponse, err := askGPT(prompt)
+		jsonData, err := json.Marshal(data)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		jsonResponse, err := askGPT(string(jsonData))
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -193,22 +192,26 @@ func getCoverLetter(coverLetter *Letter) error {
 func askGPT(message string) (string, error) {
 	url := "https://api.openai.com/v1/chat/completions"
 
-	systemPrompt := `You are a job matching assistant. Your task is to evaluate whether a given job history matches the requirements of a job description. You will receive a JSON payload with a job history and a cover letter. Based on this information, you will determine if there is a match (isMatch: true or false). If isMatch is true, you will also provide a custom cover letter tailored to the job description.
+	systemPrompt := `You are a job matching assistant.
+	Your task is to evaluate whether the user cover letter and user job history match the requirements of a job description.
+	You will receive a JSON payload with a user cover letter, user job history, job title, and job description.
+	Based on this information, you will determine if there is a match (isMatch: true or false).
+	If isMatch is true, you will also provide a custom cover letter tailored to the job description.
 
-The response should be in JSON format with the following structure:
-{
-  "isMatch": boolean,
-  "coverLetter": string
-}
+	The response should be in JSON format with the following structure:
+	{
+		"isMatch": boolean,
+		"coverLetter": string
+	}
 
-If isMatch is false, the coverLetter should be an empty string.
+	If isMatch is false, the coverLetter should be an empty string.
 
-Consider the following when making your decision:
-- Relevance of job history to the job description
-- Skills and experiences mentioned
-- Any other relevant information
+	Consider the following when making your decision:
+	- Relevance of job history to the job description
+	- Skills and experiences mentioned
+	- Any other relevant information
 
-Make sure the cover letter is professional, concise, and highlights the candidate's strengths in relation to the job description.`
+	Make sure the cover letter is professional, concise, and highlights the candidate's strengths in relation to the job description.`
 
 	requestBody := ChatCompletionRequest{
 		Model: "gpt-3.5-turbo",
