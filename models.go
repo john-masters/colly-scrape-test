@@ -56,3 +56,8 @@ type Letter struct {
 	Content   string
 	CreatedAt time.Time
 }
+
+type Response struct {
+	IsMatch     bool
+	CoverLetter string
+}

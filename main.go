@@ -47,10 +47,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	for i, job := range jobs {
-		if i > 0 { // loop once for testing
-			break
-		}
+	var responseList []Response
+
+	for _, job := range jobs {
+		// if i > 0 { // loop once for testing
+		// 	break
+		// }
 
 		prompt := fmt.Sprintf("Cover Letter: %v\n\nJob history: %v\n\nJob Title: %v\n\nJob Description: %v",
 			string(jsonCoverLetter),
@@ -59,14 +61,27 @@ func main() {
 			job.Description,
 		)
 
-		log.Println("Prompt: ", prompt)
-
-		response, err := askGPT(prompt)
+		jsonResponse, err := askGPT(prompt)
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		log.Println("Response: ", response)
+		var response Response
+
+		err = json.Unmarshal([]byte(jsonResponse), &response)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		responseList = append(responseList, response)
+	}
+	for _, response := range responseList {
+		if response.IsMatch {
+			fmt.Println("Match found")
+			fmt.Println(response.CoverLetter)
+		} else {
+			fmt.Println("No match found")
+		}
 	}
 }
 
