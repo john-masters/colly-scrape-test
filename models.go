@@ -68,3 +68,11 @@ type UserPromptData struct {
 	JobTitle           string `json:"jobTitle"`
 	JobDescription     string `json:"jobDescription"`
 }
+
+type ToApplyJob struct {
+	Title       string
+	Company     string
+	Link        string
+	Description string
+	CoverLetter string
+}

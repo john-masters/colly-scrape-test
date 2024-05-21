@@ -42,7 +42,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	var responseList []Response
+	var toApplyList []ToApplyJob
 
 	for _, job := range jobs {
 
@@ -71,10 +71,16 @@ func main() {
 		}
 
 		if response.IsMatch {
-			responseList = append(responseList, response)
+			toApplyList = append(toApplyList, ToApplyJob{
+				Title:       job.Title,
+				Company:     job.Company,
+				Link:        job.Link,
+				Description: job.Description,
+				CoverLetter: response.CoverLetter,
+			})
 		}
 	}
-	log.Println(responseList)
+	log.Println(toApplyList)
 }
 
 func scrape(jobs *[]Job) {
