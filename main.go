@@ -27,6 +27,8 @@ func main() {
 	var coverLetter Letter
 
 	scrape(&jobs)
+
+	log.Println(jobs)
 	err = getHistory(&historyList)
 	if err != nil {
 		log.Fatal(err)
@@ -73,16 +75,12 @@ func main() {
 			log.Fatal(err)
 		}
 
-		responseList = append(responseList, response)
-	}
-	for _, response := range responseList {
 		if response.IsMatch {
-			fmt.Println("Match found")
-			fmt.Println(response.CoverLetter)
-		} else {
-			fmt.Println("No match found")
+			responseList = append(responseList, response)
 		}
 	}
+	log.Println(responseList)
+
 }
 
 func scrape(jobs *[]Job) {
@@ -114,6 +112,13 @@ func scrape(jobs *[]Job) {
 				(*jobs)[i].Description = description
 				break
 			}
+		}
+	})
+
+	c.OnHTML("a[aria-label='Next']", func(e *colly.HTMLElement) {
+		nextPage := e.Attr("href")
+		if nextPage != "" {
+			e.Request.Visit("https://www.seek.com.au" + nextPage)
 		}
 	})
 
