@@ -1,7 +1,10 @@
 package main
 
 import (
+	"encoding/csv"
 	"log"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/gocolly/colly"
@@ -22,10 +25,22 @@ func main() {
 	var jobUrls []string
 	getJobUrls(&pageUrls, &jobUrls)
 
-	var jobDetails []Job
+	var jobDetails [][]string
 	getJobDetails(&jobUrls, &jobDetails)
 
-	log.Println(jobDetails)
+	file, err := os.Create("jobs.csv")
+	if err != nil {
+		log.Fatal("Cannot create file", err)
+	}
+
+	w := csv.NewWriter(file)
+	w.WriteAll(jobDetails)
+
+	err = w.Error()
+	if err != nil {
+		log.Fatal("Cannot write to file", err)
+	}
+	log.Println("Jobs successfully written to jobs.csv")
 }
 
 func getPageUrls(pages *[]string) {
@@ -69,7 +84,7 @@ func getJobUrls(pageUrls *[]string, jobUrls *[]string) {
 	}
 }
 
-func getJobDetails(jobUrls *[]string, jobDetails *[]Job) {
+func getJobDetails(jobUrls *[]string, jobDetails *[][]string) {
 
 	var wg sync.WaitGroup
 
@@ -87,12 +102,14 @@ func getJobDetails(jobUrls *[]string, jobDetails *[]Job) {
 				location := e.ChildText("[data-automation='job-detail-location']")
 				description := e.ChildText("[data-automation='jobAdDetails']")
 
-				job := Job{
-					Position:    position,
-					Company:     company,
-					Location:    location,
-					Description: description,
-					Link:        e.Request.URL.String(),
+				formattedDescription := strings.ReplaceAll(description, "\n", "\\n")
+
+				job := []string{
+					position,
+					company,
+					location,
+					formattedDescription,
+					e.Request.URL.String(),
 				}
 
 				*jobDetails = append(*jobDetails, job)
