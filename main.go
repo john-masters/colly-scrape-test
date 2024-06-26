@@ -2,6 +2,7 @@ package main
 
 import (
 	"log"
+	"strings"
 	"sync"
 
 	"github.com/gocolly/colly"
@@ -86,12 +87,13 @@ func getJobDetails(jobUrls *[]string, jobDetails *[]Job) {
 				company := e.ChildText("[data-automation='advertiser-name']")
 				location := e.ChildText("[data-automation='job-detail-location']")
 				description := e.ChildText("[data-automation='jobAdDetails']")
+				formattedDescription := strings.ReplaceAll(description, "\n", "\\n")
 
 				job := Job{
 					Position:    position,
 					Company:     company,
 					Location:    location,
-					Description: description,
+					Description: formattedDescription,
 					Link:        e.Request.URL.String(),
 				}
 
