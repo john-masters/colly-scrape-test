@@ -17,19 +17,39 @@ type Job struct {
 }
 
 func main() {
-	var pageUrls []string
-	getPageUrls(&pageUrls)
-
-	var jobUrls []string
-	getJobUrls(&pageUrls, &jobUrls)
+	searchTerms := []string{"full stack developer", "backend developer", "frontend developer"}
 
 	var jobDetails []Job
-	getJobDetails(&jobUrls, &jobDetails)
+
+	getJobs(&jobDetails, searchTerms)
 
 	log.Println(jobDetails)
 }
 
-func getPageUrls(pages *[]string) {
+func getJobs(jobDetails *[]Job, searchTerms []string) {
+	var wg sync.WaitGroup
+
+	for _, term := range searchTerms {
+		wg.Add(1)
+
+		go func(term string) {
+			defer wg.Done()
+
+			var pageUrls []string
+			getPageUrls(&pageUrls, term)
+
+			var jobUrls []string
+			getJobUrls(&pageUrls, &jobUrls)
+
+			getJobDetails(&jobUrls, jobDetails)
+
+		}(term)
+
+		wg.Wait()
+	}
+}
+
+func getPageUrls(pages *[]string, searchTerm string) {
 	c := colly.NewCollector()
 
 	c.OnHTML("a[aria-label='Next']", func(e *colly.HTMLElement) {
@@ -41,7 +61,13 @@ func getPageUrls(pages *[]string) {
 		}
 	})
 
-	c.Visit("https://www.seek.com.au/full-stack-developer-jobs/full-time?daterange=1")
+	c.OnRequest(func(r *colly.Request) {
+		log.Println("Visiting", r.URL.String())
+	})
+
+	formattedSearchTerm := strings.ReplaceAll(searchTerm, " ", "-")
+	url := "https://www.seek.com.au/" + formattedSearchTerm + "-jobs/full-time?daterange=1"
+	c.Visit(url)
 }
 
 func getJobUrls(pageUrls *[]string, jobUrls *[]string) {
@@ -61,6 +87,10 @@ func getJobUrls(pageUrls *[]string, jobUrls *[]string) {
 				link := "https://www.seek.com.au" + route
 
 				*jobUrls = append(*jobUrls, link)
+			})
+
+			c.OnRequest(func(r *colly.Request) {
+				log.Println("Visiting", r.URL.String())
 			})
 
 			c.Visit(url)
@@ -98,6 +128,10 @@ func getJobDetails(jobUrls *[]string, jobDetails *[]Job) {
 				}
 
 				*jobDetails = append(*jobDetails, job)
+			})
+
+			c.OnRequest(func(r *colly.Request) {
+				log.Println("Visiting", r.URL.String())
 			})
 
 			c.Visit(url)
