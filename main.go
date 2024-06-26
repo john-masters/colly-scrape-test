@@ -2,87 +2,31 @@ package main
 
 import (
 	"log"
+	"sync"
 
 	"github.com/gocolly/colly"
 )
 
-func main() {
-	var pageUrls []string
-
-	getPageUrls(&pageUrls)
-	log.Println(pageUrls)
-
-	// var jobs []Job
-
-	// scrape(&jobs)
-
-	// // loop over jobs
-	// file, err := os.Create("result.csv")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer file.Close()
-
-	// w := csv.NewWriter(file)
-	// defer w.Flush()
-
-	// var jobData [][]string
-	// for _, job := range jobs {
-	// 	jobData = append(jobData, []string{job.Title, job.Company, job.Link, job.Description})
-	// }
-
-	// w.WriteAll(jobData)
-
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+type Job struct {
+	Position    string
+	Company     string
+	Location    string
+	Description string
+	Link        string
 }
 
-// func scrape(jobs *[]Job) {
-// 	c := colly.NewCollector()
+func main() {
+	var pageUrls []string
+	getPageUrls(&pageUrls)
 
-// 	c.OnHTML("[data-card-type='JobCard']", func(e *colly.HTMLElement) {
-// 		title := e.ChildText("a[data-automation='jobTitle']")
-// 		company := e.ChildText("a[data-automation='jobCompany']")
-// 		link := e.ChildAttr("a[data-automation='jobTitle']", "href")
+	var jobUrls []string
+	getJobUrls(&pageUrls, &jobUrls)
 
-// 		fullLink := "https://www.seek.com.au" + link
+	var jobDetails []Job
+	getJobDetails(&jobUrls, &jobDetails)
 
-// 		job := Job{
-// 			Title:   title,
-// 			Company: company,
-// 			Link:    fullLink,
-// 		}
-
-// 		*jobs = append(*jobs, job)
-
-// 		e.Request.Visit(fullLink)
-// 	})
-
-// 	c.OnHTML("div[data-automation='jobAdDetails']", func(e *colly.HTMLElement) {
-// 		description := e.Text
-
-// 		for i := range *jobs {
-// 			if (*jobs)[i].Link == e.Request.URL.String() {
-// 				(*jobs)[i].Description = description
-// 				break
-// 			}
-// 		}
-// 	})
-
-// 	c.OnHTML("a[aria-label='Next']", func(e *colly.HTMLElement) {
-// 		nextPage := e.Attr("href")
-// 		if nextPage != "" {
-// 			e.Request.Visit("https://www.seek.com.au" + nextPage)
-// 		}
-// 	})
-
-// 	c.OnRequest(func(r *colly.Request) {
-// 		log.Println("Visiting", r.URL)
-// 	})
-
-// 	c.Visit("https://www.seek.com.au/full-stack-developer-jobs/full-time?daterange=1")
-// }
+	log.Println(jobDetails)
+}
 
 func getPageUrls(pages *[]string) {
 	c := colly.NewCollector()
@@ -99,3 +43,64 @@ func getPageUrls(pages *[]string) {
 	c.Visit("https://www.seek.com.au/full-stack-developer-jobs/full-time?daterange=1")
 }
 
+func getJobUrls(pageUrls *[]string, jobUrls *[]string) {
+
+	var wg sync.WaitGroup
+
+	for _, url := range *pageUrls {
+		wg.Add(1)
+
+		go func(url string) {
+			defer wg.Done()
+
+			c := colly.NewCollector()
+
+			c.OnHTML("[data-automation='normalJob']", func(e *colly.HTMLElement) {
+				route := e.ChildAttr("a[data-automation='jobTitle']", "href")
+				link := "https://www.seek.com.au" + route
+
+				*jobUrls = append(*jobUrls, link)
+			})
+
+			c.Visit(url)
+		}(url)
+
+		wg.Wait()
+	}
+}
+
+func getJobDetails(jobUrls *[]string, jobDetails *[]Job) {
+
+	var wg sync.WaitGroup
+
+	for _, url := range *jobUrls {
+		wg.Add(1)
+
+		go func(url string) {
+			defer wg.Done()
+
+			c := colly.NewCollector()
+
+			c.OnHTML("div[data-automation='jobDetailsPage']", func(e *colly.HTMLElement) {
+				position := e.ChildText("[data-automation='job-detail-title']")
+				company := e.ChildText("[data-automation='advertiser-name']")
+				location := e.ChildText("[data-automation='job-detail-location']")
+				description := e.ChildText("[data-automation='jobAdDetails']")
+
+				job := Job{
+					Position:    position,
+					Company:     company,
+					Location:    location,
+					Description: description,
+					Link:        e.Request.URL.String(),
+				}
+
+				*jobDetails = append(*jobDetails, job)
+			})
+
+			c.Visit(url)
+		}(url)
+
+		wg.Wait()
+	}
+}
